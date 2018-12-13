@@ -13,7 +13,7 @@ namespace BattleshipMaxConsole.Data
     {
         Dictionary<int, string> responses = new Dictionary<int, string>()
         {
-            {210,"210 BATTLESHIP/1.0" },
+            {210, "210 BATTLESHIP/1.0" },
             {220, "220 <remote player name>" },
             {221, "221 Client Starts" },
             {222, "222 Host Starts" },
@@ -69,9 +69,12 @@ namespace BattleshipMaxConsole.Data
                 Coordinates = new string[]{"6.3","6.4"}
             },
         };
-
+        private List<string> _targets = new List<string>();
+        private List<string> _confirmedHits = new List<string>();
+        private List<string> _confirmedMisses = new List<string>();
+        private int PlayerHealth = 17;
         public string User { get; set; }
-
+        public string Opponent { get; set; }
         public string[,] CreatePlayerGrid()
         {
             var grid = new string[10, 10];
@@ -81,13 +84,24 @@ namespace BattleshipMaxConsole.Data
                 for (int j = 0; j < 10; j++)
                 {
                     var currentCoordinate = i + "." + j;
+                    var hit = _targets.Where(x => x == currentCoordinate);
+
                     var shipDetected = _ships.Where(x => x.Coordinates.Contains(currentCoordinate)).FirstOrDefault();
 
+                    if (hit != null)
+                    {
+                        grid[i, j] = "H";
+                    }
                     if (shipDetected != null)
                     {
                         var nameArray = shipDetected.Name.ToCharArray();
 
                         grid[i, j] = $"{nameArray[0]}";
+                    }
+                    else if (shipDetected != null && hit != null)
+                    {
+                        shipDetected.Health--;
+                        grid[i, j] = "X";
                     }
                     else
                     {
@@ -134,28 +148,83 @@ namespace BattleshipMaxConsole.Data
             while (true)
             {
                 Console.WriteLine("Waiting for opponent...");
-                
+
 
                 using (var client = _listener.AcceptTcpClient())
                 using (var networkStream = client.GetStream())
                 using (StreamReader reader = new StreamReader(networkStream, Encoding.UTF8))
                 using (var writer = new StreamWriter(networkStream, Encoding.UTF8) { AutoFlush = true })
                 {
+                    var turn = 0;
                     Console.WriteLine($"Client has connected {client.Client.RemoteEndPoint}!");
                     writer.WriteLine(responses[210]);
                     TcpMessage(true, responses[210]);
-                    
+
                     while (client.Connected)
                     {
+                        turn++;
+
                         var command = reader.ReadLine();
                         TcpMessage(false, command);
-                        writer.WriteLine("220 " + User);
-                        TcpMessage(true, "220 " + User);
-
-
-                        if (string.Equals(command, "EXIT", StringComparison.InvariantCultureIgnoreCase))
+                        
+                        if (turn == 1)
                         {
-                            writer.WriteLine("BYE BYE");
+                            Opponent = command.Substring(5);
+                            writer.WriteLine("220 " + User);
+                            TcpMessage(true, "220 " + User);
+                            break;
+                        }
+
+                        if (string.Equals(command.Substring(0,5), "START",StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            //TODO: fix logic for randomize player to start!!!
+                            Random rnd = new Random();
+                            var playerToStart = rnd.Next(1, 2);
+                            if (playerToStart == 1)
+                            {
+                                var uStartMessage = "222 I " + User + ", will start!";
+                                //222
+                                //You start
+                                writer.WriteLine(uStartMessage);
+                                TcpMessage(true, uStartMessage);
+                                var yourFirstturn = Console.ReadLine();
+                                writer.WriteLine(yourFirstturn);
+                                TcpMessage(false, yourFirstturn);
+                                break;
+                            }
+                            else if (playerToStart == 2)
+                            {
+                                //221
+                                //Opponent start
+                                var oStartMessage = "221 You, player " + Opponent + ", will start!";
+                                writer.WriteLine(oStartMessage);
+                                TcpMessage(true, oStartMessage);
+                                break;
+                            }
+
+                        }
+
+                        if (string.Equals(command.Substring(0, 4), "FIRE", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            //check if hit????
+                            var response = ConvertAndAddTarget(command.Substring(5, 2));
+                            //Add target
+                            writer.WriteLine(response);
+                            TcpMessage(true, response);
+                            break;
+                        }
+                        if (responses.Any(x => x.Key == int.Parse(command.Substring(0, 3))))
+                        {
+                            //IF MATCH??? write message
+                            TcpMessage(true, responses[int.Parse(command.Substring(0, 3))]);
+                            break;
+                        }
+
+                        if (string.Equals(command, "QUIT", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            //TODO: Shut down!
+                            writer.WriteLine(responses[270]);
+                            TcpMessage(true, responses[270]);
                             break;
                         }
 
@@ -205,7 +274,6 @@ namespace BattleshipMaxConsole.Data
             }
 
         }
-
         public void Play(string hostAdress, string hostPort)
         {
 
@@ -229,7 +297,6 @@ namespace BattleshipMaxConsole.Data
 
 
         }
-
         public void TcpMessage(bool blue, string message)
         {
             if (blue)
@@ -244,6 +311,115 @@ namespace BattleshipMaxConsole.Data
             Console.ResetColor();
 
         }
-    }
+        public string ConvertAndAddTarget(string target)
+        {
+            //Lägg till targets
+            var targetToAdd = ParseLocation(target);
+            var shipHit = _ships.Where(s => s.Coordinates.Contains(targetToAdd)).FirstOrDefault();
 
+            if (_targets.Contains(targetToAdd))
+            {
+                //target already exists????
+
+                return "503";
+
+            }
+            _targets.Add(targetToAdd);
+
+            if (shipHit != null)
+            {
+
+                PlayerHealth--;
+                if (PlayerHealth == 0)
+                {
+                    return responses[260];
+                }
+
+                if (shipHit.Name == "Carrier")
+                {
+                    shipHit.Health--;
+                    if (shipHit.Health != 0)
+                    {
+                        return responses[241];
+
+                    }
+                    return responses[251];
+
+                }
+                if (shipHit.Name == "Battleship")
+                {
+                    shipHit.Health--;
+                    if (shipHit.Health != 0)
+                    {
+                        return responses[242];
+
+                    }
+                    return responses[252];
+                }
+                if (shipHit.Name == "Destroyer")
+                {
+                    shipHit.Health--;
+                    if (shipHit.Health != 0)
+                    {
+                        return responses[243];
+
+                    }
+                    return responses[253];
+                }
+                if (shipHit.Name == "Submarine")
+                {
+                    shipHit.Health--;
+                    if (shipHit.Health != 0)
+                    {
+                        return responses[244];
+
+                    }
+                    return responses[254];
+                }
+                if (shipHit.Name == "Patrol Boat")
+                {
+                    shipHit.Health--;
+                    if (shipHit.Health != 0)
+                    {
+                        return responses[245];
+
+                    }
+                    return responses[255];
+                }
+            }
+            return responses[230];
+        }
+        public string ParseLocation(string location)
+        {
+            var i = location.Substring(0, 1);
+            var rest = "." + location.Substring(1, 1);
+            switch (i)
+            {
+                case "A":
+                    return "0" + rest;
+                case "B":
+                    return "1" + rest;
+                case "C":
+                    return "2" + rest;
+                case "D":
+                    return "3" + rest;
+                case "E":
+                    return "4" + rest;
+                case "F":
+                    return "5" + rest;
+                case "G":
+                    return "6" + rest;
+                case "H":
+                    return "7" + rest;
+                case "I":
+                    return "8" + rest;
+                case "J":
+                    return "9" + rest;
+                default:
+                    return "false location woot";
+            }
+
+        }
+
+    }
 }

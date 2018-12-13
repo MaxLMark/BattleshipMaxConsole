@@ -8,7 +8,6 @@ namespace BattleshipMaxConsole.Models
     {
         public string Name { get; set; }
         public int Health { get; set; }
-
         public string[] Coordinates { get; set; }
     }
 }
