@@ -14,7 +14,7 @@ namespace BattleshipMaxConsole.Data
         Dictionary<int, string> responses = new Dictionary<int, string>()
         {
             {210, "210 BATTLESHIP/1.0" },
-            {220, "220 <remote player name>" },
+            {220, "220 "  },
             {221, "221 Client Starts" },
             {222, "222 Host Starts" },
             {230, "230 Miss!" },
@@ -147,8 +147,8 @@ namespace BattleshipMaxConsole.Data
         {
             while (true)
             {
-                Console.WriteLine("Waiting for opponent...");
 
+                Console.WriteLine("Waiting for opponent...");
 
                 using (var client = _listener.AcceptTcpClient())
                 using (var networkStream = client.GetStream())
@@ -165,17 +165,17 @@ namespace BattleshipMaxConsole.Data
                         turn++;
 
                         var command = reader.ReadLine();
-                        TcpMessage(false, command);
-                        
+                        TcpMessage(false, "Hello " + command.Substring(3));
+
                         if (turn == 1)
                         {
-                            Opponent = command.Substring(5);
+                            Opponent = command.Substring(3);
                             writer.WriteLine("220 " + User);
                             TcpMessage(true, "220 " + User);
-                            break;
+
                         }
 
-                        if (string.Equals(command.Substring(0,5), "START",StringComparison.InvariantCultureIgnoreCase))
+                        if (string.Equals(command.Substring(0, 5), "START", StringComparison.InvariantCultureIgnoreCase))
                         {
                             //TODO: fix logic for randomize player to start!!!
                             Random rnd = new Random();
@@ -187,10 +187,10 @@ namespace BattleshipMaxConsole.Data
                                 //You start
                                 writer.WriteLine(uStartMessage);
                                 TcpMessage(true, uStartMessage);
-                                var yourFirstturn = Console.ReadLine();
-                                writer.WriteLine(yourFirstturn);
-                                TcpMessage(false, yourFirstturn);
-                                break;
+                                command = Console.ReadLine();
+                                writer.WriteLine(command);
+                                //TcpMessage(false, command);
+                                continue;
                             }
                             else if (playerToStart == 2)
                             {
@@ -199,7 +199,7 @@ namespace BattleshipMaxConsole.Data
                                 var oStartMessage = "221 You, player " + Opponent + ", will start!";
                                 writer.WriteLine(oStartMessage);
                                 TcpMessage(true, oStartMessage);
-                                break;
+                                continue;
                             }
 
                         }
@@ -211,13 +211,17 @@ namespace BattleshipMaxConsole.Data
                             //Add target
                             writer.WriteLine(response);
                             TcpMessage(true, response);
-                            break;
+
                         }
                         if (responses.Any(x => x.Key == int.Parse(command.Substring(0, 3))))
                         {
+                            if (command.Substring(0, 3) == "220")
+                            {
+                                continue;
+                            }
                             //IF MATCH??? write message
                             TcpMessage(true, responses[int.Parse(command.Substring(0, 3))]);
-                            break;
+
                         }
 
                         if (string.Equals(command, "QUIT", StringComparison.InvariantCultureIgnoreCase))
@@ -225,12 +229,6 @@ namespace BattleshipMaxConsole.Data
                             //TODO: Shut down!
                             writer.WriteLine(responses[270]);
                             TcpMessage(true, responses[270]);
-                            break;
-                        }
-
-                        if (string.Equals(command, "DATE", StringComparison.InvariantCultureIgnoreCase))
-                        {
-                            writer.WriteLine(DateTime.UtcNow.ToString("o"));
                             break;
                         }
 
@@ -248,31 +246,67 @@ namespace BattleshipMaxConsole.Data
             using (StreamReader reader = new StreamReader(networkStream, Encoding.UTF8))
             using (var writer = new StreamWriter(networkStream, Encoding.UTF8) { AutoFlush = true })
             {
+                var turn = 0;
                 Console.WriteLine($"Connected to {client.Client.RemoteEndPoint}");
+                TcpMessage(false, reader.ReadLine());
+                writer.WriteLine("220 " + User);
+                TcpMessage(true, "220 " + User);
+
+
+                try
+                {
+                    var text1 = reader.ReadLine();
+                    Opponent = text1.Split()[1];
+                    TcpMessage(false, "HELLO " + Opponent);
+                }
+                catch (Exception)
+                {
+                    Opponent = "(Host)";
+                    TcpMessage(true, "220 " + Opponent);
+                }
+
+
                 while (client.Connected)
                 {
-                    Console.WriteLine("Enter text to send: (Write QUIT to end plix)");
-                    var text = Console.ReadLine();
-
-                    if (text == "QUIT") break;
-
-                    // Skicka text
-                    writer.WriteLine(text);
-
-                    if (!client.Connected) break;
-
-                    // Läs minst en rad
-                    do
+                    turn++;
+                    if (turn == 1)
                     {
-                        var line = reader.ReadLine();
-                        Console.WriteLine($"Answere: {line}");
+                        Console.WriteLine("Write 'START' to start the game");
 
-                    } while (networkStream.DataAvailable);
+                    }
+                    var input = Console.ReadLine().ToUpper();
+                    //TcpMessage(false, input);
+                    writer.WriteLine(input);
+                    var command = reader.ReadLine();
+                    //TcpMessage(false, command);
+
+                    if (command.Substring(0, 3) == "221")
+                    {
+                        //Client starts
+                        TcpMessage(false, responses[221]);
+
+                    }
+                    else if (command.Substring(0, 3) == "222")
+                    {
+                        //Host starts
+                        TcpMessage(false, responses[222]);
+                        command = reader.ReadLine();
+
+                    }
+
+                    if (string.Equals(command.Substring(0, 4), "FIRE", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        //check if hit????
+                        var response = ConvertAndAddTarget(command.Substring(5, 2));
+                        //Add target
+                        writer.WriteLine(response);
+                        TcpMessage(true, response);
+                        continue;
+                    }
+
 
                 };
-
             }
-
         }
         public void Play(string hostAdress, string hostPort)
         {
@@ -392,7 +426,7 @@ namespace BattleshipMaxConsole.Data
         public string ParseLocation(string location)
         {
             var i = location.Substring(0, 1);
-            var rest = "." + location.Substring(1, 1);
+            var rest = "." + (int.Parse(location.Substring(1, 1)) - 1);
             switch (i)
             {
                 case "A":
