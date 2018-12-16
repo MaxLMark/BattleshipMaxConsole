@@ -10,17 +10,38 @@ namespace BattleshipMaxConsole
             Console.SetWindowSize(95, 45);
             var game = new Game();
             Console.WriteLine("Hello welcome to MarreNCharres battleship game!");
-            PrintGrid(game.CreatePlayerGrid(), game.CreateEnemyGrid());
-            Console.WriteLine("Enter your name!!!!!");
-            var nameOfPlayer = Console.ReadLine();
-            game.User = nameOfPlayer;
-            Console.WriteLine("Host adress!!! if you leave this empty you agree to be da host");
-            var hostAdress = Console.ReadLine();
-            Console.WriteLine("Port:");
-            var hostPort = Console.ReadLine();
-            game.Play(hostAdress, hostPort);
-            Console.ReadLine();
+            Game.SavedMessages.AddMessage("Hello welcome to MarreNCharres battleship game!\r\n", false);
+            Player.Grid = game.CreatePlayerGrid();
+            Player.OpponentGrid = new string[10, 10];
 
+            Console.WriteLine("Enter your name!!!!!");
+            Game.SavedMessages.AddMessage("Enter your name!!!!!\r\n", false);
+            Game.ThePlayer.Name = Console.ReadLine();
+            game.User = Game.ThePlayer.Name;
+            Console.WriteLine("Host adress!!! if you leave this empty you agree to be da host");
+            Game.SavedMessages.AddMessage("Host adress!!! if you leave this empty you agree to be da host\r\n", false);
+            var address = Console.ReadLine();
+            if (address == null || address == "")
+            {
+                Console.Write("Port: ");
+                Game.SavedMessages.AddMessage("Port: ", false);
+                Game.ThePlayer.Port = Console.ReadLine();
+                Game.SavedMessages.AddMessage($"{Game.ThePlayer.Port}\r\n", false);
+                Game.PrintGrid(Player.Grid, Player.OpponentGrid, Game.ThePlayer, Game.TheOpponent);
+                game.Play("", Game.ThePlayer.Port);
+            }
+            else
+            {
+                Game.TheOpponent.HostAddress = address;
+                Console.WriteLine("Port:");
+                Game.SavedMessages.AddMessage("Port: ", false);
+                Game.TheOpponent.Port = Console.ReadLine();
+                Game.SavedMessages.AddMessage($"{Game.TheOpponent.Port}\r\n", false);
+                Game.PrintGrid(Player.Grid, Player.OpponentGrid, Game.ThePlayer, Game.TheOpponent);
+                game.Play(Game.TheOpponent.HostAddress, Game.TheOpponent.Port);
+            }
+
+            Console.ReadLine();
         }
 
         //Printar ut boardet!
