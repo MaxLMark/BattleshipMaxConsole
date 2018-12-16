@@ -155,84 +155,132 @@ namespace BattleshipMaxConsole.Data
                 using (StreamReader reader = new StreamReader(networkStream, Encoding.UTF8))
                 using (var writer = new StreamWriter(networkStream, Encoding.UTF8) { AutoFlush = true })
                 {
+                    var errorMessages = 0;
                     var turn = 0;
                     Console.WriteLine($"Client has connected {client.Client.RemoteEndPoint}!");
                     writer.WriteLine(responses[210]);
-                    TcpMessage(true, responses[210]);
+                    TcpMessage(false, responses[210]);
 
                     while (client.Connected)
                     {
                         turn++;
 
                         var command = reader.ReadLine();
-                        TcpMessage(false, "Hello " + command.Substring(3));
+                        if (command.Length < 3)
+                        {
+                            
+                            writer.WriteLine(responses[500]);
+                            continue;
+                        }
+                        
 
                         if (turn == 1)
                         {
+                            TcpMessage(false, "HELLO " + User);
                             Opponent = command.Substring(3);
                             writer.WriteLine("220 " + User);
-                            TcpMessage(true, "220 " + User);
+                            TcpMessage(true, "220 " + Opponent);
 
                         }
-
-                        if (string.Equals(command.Substring(0, 5), "START", StringComparison.InvariantCultureIgnoreCase))
+                        else
                         {
-                            //TODO: fix logic for randomize player to start!!!
-                            Random rnd = new Random();
-                            var playerToStart = rnd.Next(1, 2);
-                            if (playerToStart == 1)
+                            //if (command.Substring(0, 5) != "START")
+                            //{
+                            //    TcpMessage(true, command);
+                            //}
+                            int code;
+
+
+                            if (string.Equals(command, "START", StringComparison.InvariantCultureIgnoreCase))
                             {
-                                var uStartMessage = "222 I " + User + ", will start!";
-                                //222
-                                //You start
-                                writer.WriteLine(uStartMessage);
-                                TcpMessage(true, uStartMessage);
+                                errorMessages = 0;
+                                //TODO: fix logic for randomize player to start!!!
+                                Random rand = new Random();
+
+
+                                if (rand.NextDouble() >= 0.5)
+                                {
+                                    var uStartMessage = "222 I " + User + ", will start!";
+                                    //222
+                                    //You start
+                                    writer.WriteLine(uStartMessage);
+                                    TcpMessage(false, uStartMessage);
+                                    command = Console.ReadLine();
+                                    writer.WriteLine(command);
+                                    var answere = reader.ReadLine();
+                                    TcpMessage(true, answere);
+                                    continue;
+                                }
+                                else
+                                {
+                                    //221
+                                    //Opponent start
+                                    var oStartMessage = "221 You, player " + Opponent + ", will start!";
+                                    writer.WriteLine(oStartMessage);
+                                    TcpMessage(false, "Opponent " + Opponent + ", will start!");
+                                    continue;
+                                }
+
+                            }
+
+                            if (string.Equals(command.Substring(0, 4), "FIRE", StringComparison.InvariantCultureIgnoreCase))
+                            {
+                                errorMessages = 0;
+                                //check if hit????
+                                var response = ConvertAndAddTarget(command.Substring(5, 2));
+                                //Add target
+                                writer.WriteLine(response);
+                                TcpMessage(true, command);
+                                TcpMessage(false, response);
                                 command = Console.ReadLine();
                                 writer.WriteLine(command);
                                 //TcpMessage(false, command);
                                 continue;
+
                             }
-                            else if (playerToStart == 2)
+
+                            if (int.TryParse(command.Substring(0, 3), out code))
                             {
-                                //221
-                                //Opponent start
-                                var oStartMessage = "221 You, player " + Opponent + ", will start!";
-                                writer.WriteLine(oStartMessage);
-                                TcpMessage(true, oStartMessage);
+                                if (code == 220)
+                                {
+                                    continue;
+                                }
+
+                                if (code == 500 || code == 501)
+                                {
+                                    errorMessages++;
+                                    if (errorMessages == 3)
+                                    {
+                                        Console.WriteLine("You sir have failed! Closing connection!!!");
+                                        client.Close();
+                                        Console.ReadLine();
+                                        break;
+                                    }
+                                    TcpMessage(true, responses[code]);
+                                    var newtry = Console.ReadLine();
+                                    writer.WriteLine(newtry);
+                                    continue;
+                                }
+                                errorMessages = 0;
+                                //IF MATCH??? write message
+                                TcpMessage(true, responses[code]);
                                 continue;
                             }
 
-                        }
 
-                        if (string.Equals(command.Substring(0, 4), "FIRE", StringComparison.InvariantCultureIgnoreCase))
-                        {
-                            //check if hit????
-                            var response = ConvertAndAddTarget(command.Substring(5, 2));
-                            //Add target
-                            writer.WriteLine(response);
-                            TcpMessage(true, response);
-
-                        }
-                        if (responses.Any(x => x.Key == int.Parse(command.Substring(0, 3))))
-                        {
-                            if (command.Substring(0, 3) == "220")
+                            if (string.Equals(command, "QUIT", StringComparison.InvariantCultureIgnoreCase))
                             {
-                                continue;
+                                //TODO: Shut down!
+                                writer.WriteLine(responses[270]);
+                                TcpMessage(true, responses[270]);
+                                client.Close();
+                                break;
                             }
-                            //IF MATCH??? write message
-                            TcpMessage(true, responses[int.Parse(command.Substring(0, 3))]);
 
+                            errorMessages++;
+                            writer.WriteLine(responses[500]);
+                            //TcpMessage(true, responses[500]);
                         }
-
-                        if (string.Equals(command, "QUIT", StringComparison.InvariantCultureIgnoreCase))
-                        {
-                            //TODO: Shut down!
-                            writer.WriteLine(responses[270]);
-                            TcpMessage(true, responses[270]);
-                            break;
-                        }
-
-                        writer.WriteLine($"UNKNOWN COMMAND: {command}");
                     }
                 }
 
@@ -246,18 +294,20 @@ namespace BattleshipMaxConsole.Data
             using (StreamReader reader = new StreamReader(networkStream, Encoding.UTF8))
             using (var writer = new StreamWriter(networkStream, Encoding.UTF8) { AutoFlush = true })
             {
+                var errorMessages = 0;
                 var turn = 0;
+                int code;
                 Console.WriteLine($"Connected to {client.Client.RemoteEndPoint}");
-                TcpMessage(false, reader.ReadLine());
+                TcpMessage(true, reader.ReadLine());
                 writer.WriteLine("220 " + User);
-                TcpMessage(true, "220 " + User);
+                TcpMessage(false, "HELLO " + User);
 
 
                 try
                 {
                     var text1 = reader.ReadLine();
                     Opponent = text1.Split()[1];
-                    TcpMessage(false, "HELLO " + Opponent);
+                    TcpMessage(true, text1);
                 }
                 catch (Exception)
                 {
@@ -272,38 +322,115 @@ namespace BattleshipMaxConsole.Data
                     if (turn == 1)
                     {
                         Console.WriteLine("Write 'START' to start the game");
+                        var input = Console.ReadLine().ToUpper();
+                        //TcpMessage(false, input);
+                        writer.WriteLine(input);
 
                     }
-                    var input = Console.ReadLine().ToUpper();
-                    //TcpMessage(false, input);
-                    writer.WriteLine(input);
                     var command = reader.ReadLine();
                     //TcpMessage(false, command);
+
+                    if (command.Length < 3)
+                    {
+                        errorMessages++;
+                        if (errorMessages == 3)
+                        {
+                            Console.WriteLine("You sir have failed! Closing connection!!!");
+                            client.Close();
+                            Console.ReadLine();
+                            break;
+                        }
+                        writer.WriteLine(responses[500]);
+                        continue;
+                    }
 
                     if (command.Substring(0, 3) == "221")
                     {
                         //Client starts
-                        TcpMessage(false, responses[221]);
+                        TcpMessage(true, command);
+                        var clientInput = Console.ReadLine();
+                        writer.WriteLine(clientInput);
+                        //TcpMessage(false, clientInput);
+                        continue;
 
                     }
                     else if (command.Substring(0, 3) == "222")
                     {
                         //Host starts
-                        TcpMessage(false, responses[222]);
+                        TcpMessage(true, responses[222]);
                         command = reader.ReadLine();
+                        if (command.Length < 3)
+                        {
+                            errorMessages++;
+                            if (errorMessages == 3)
+                            {
+                                Console.WriteLine("You sir have failed! Closing connection!!!");
+                                client.Close();
+                                Console.ReadLine();
+                                break;
+                            }
+                            writer.WriteLine(responses[500]);
+                            continue;
+                        }
 
                     }
 
                     if (string.Equals(command.Substring(0, 4), "FIRE", StringComparison.InvariantCultureIgnoreCase))
                     {
+                        errorMessages = 0;
                         //check if hit????
                         var response = ConvertAndAddTarget(command.Substring(5, 2));
                         //Add target
                         writer.WriteLine(response);
-                        TcpMessage(true, response);
+                        TcpMessage(true, command);
+                        TcpMessage(false, response);
+                        command = Console.ReadLine();
+                        writer.WriteLine(command);
+                        //TcpMessage(false, command);
                         continue;
                     }
 
+                    if (int.TryParse(command.Substring(0, 3), out code))
+                    {
+                        if (code == 220)
+                        {
+                            continue;
+                        }
+
+                        if (code == 500 || code == 501)
+                        {
+                            errorMessages++;
+                            if (errorMessages == 3)
+                            {
+                                Console.WriteLine("You sir have failed! Closing connection!!!");
+                                client.Close();
+                                Console.ReadLine();
+                                break;
+                            }
+                            TcpMessage(true, responses[code]);
+                            var newtry = Console.ReadLine();
+                            writer.WriteLine(newtry);
+                            continue;
+                        }
+
+                        errorMessages = 0;
+                        //IF MATCH??? write message
+                        TcpMessage(true, responses[code]);
+                        continue;
+                    }
+
+                    if (string.Equals(command, "QUIT", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        //TODO: Shut down!
+                        writer.WriteLine(responses[270]);
+                        TcpMessage(true, responses[270]);
+                        client.Close();
+                        break;
+                    }
+
+                    errorMessages++;
+                    writer.WriteLine(responses[500]);
+                    //TcpMessage(true, responses[500]);
 
                 };
             }
