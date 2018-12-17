@@ -176,7 +176,7 @@ namespace BattleshipMaxConsole.Data
                         turn++;
 
                         var command = reader.ReadLine();
-                        Game.SavedMessages.AddMessage($"{command}\r\n", false);
+                        //Game.SavedMessages.AddMessage($"{command}\r\n", false);
 
                         if (command.Length < 3)
                         {
@@ -208,9 +208,9 @@ namespace BattleshipMaxConsole.Data
                                 errorMessages = 0;
                                 //TODO: fix logic for randomize player to start!!!
                                 Random rand = new Random();
-
-
-                                if (rand.NextDouble() >= 0.5)
+                                //rand.NextDouble() >= 0.5
+                                var korv = 1;
+                                if (korv != 1)
                                 {
                                     var uStartMessage = "222 I " + User + ", will start!";
                                     //222
@@ -221,6 +221,7 @@ namespace BattleshipMaxConsole.Data
                                     Game.SavedMessages.AddMessage($"{command}\r\n", false);
                                     yourLastTarget = command.Split(' ')[1];
                                     writer.WriteLine(command);
+                                    ConvertAndAddTarget(yourLastTarget, "opponent");
                                     var answere = reader.ReadLine();
                                     TcpMessage(true, answere);
                                     continue;
@@ -243,7 +244,7 @@ namespace BattleshipMaxConsole.Data
                                 errorMessages = 0;
                                 //check if hit????
                                 var response = "";
-                                if(command.Length > 7)
+                                if (command.Length > 7)
                                 {
                                     response = ConvertAndAddTarget(command.Substring(5, 3), "player");
                                 }
@@ -251,7 +252,7 @@ namespace BattleshipMaxConsole.Data
                                 {
                                     response = ConvertAndAddTarget(command.Substring(5, 2), "player");
                                 }
-                                
+
                                 //Add target
                                 writer.WriteLine(response);
                                 TcpMessage(true, command);
@@ -375,7 +376,7 @@ namespace BattleshipMaxConsole.Data
 
                     }
                     var command = reader.ReadLine();
-                    Game.SavedMessages.AddMessage($"{command}\r\n", false);
+                    //Game.SavedMessages.AddMessage($"{command}\r\n", false);
                     //TcpMessage(false, command);
 
                     if (command.Length < 3)
@@ -396,9 +397,39 @@ namespace BattleshipMaxConsole.Data
                     if (command.Substring(0, 3) == "221")
                     {
                         //Client starts
-                        TcpMessage(true, command);
-                        var clientInput = Console.ReadLine();
-                        writer.WriteLine(clientInput);
+                        var failed = true;
+                        do
+                        {
+                            if (errorMessages == 3)
+                            {
+                                Console.WriteLine("You sir have failed! Closing connection!!!");
+                                Game.SavedMessages.AddMessage($"You sir have failed! Closing connection!!!\r\n", false);
+                                client.Close();
+                                Console.ReadLine();
+                                break;
+                            }
+                            TcpMessage(true, command);
+                            var clientInput = Console.ReadLine();
+                            if (clientInput.Substring(0, 4) == "FIRE")
+                            {
+                                lastTarget = clientInput.Split(' ')[1];
+                                writer.WriteLine(clientInput);
+                                failed = false;
+                            }
+                            else if (clientInput.Substring(0, 4) == "QUIT")
+                            {
+                                writer.WriteLine(clientInput);
+                                failed = false;
+                            }
+                            else
+                            {
+                                errorMessages++;
+                                Console.WriteLine("Please try to write something usefull");
+
+                            }
+                        } while (failed);
+
+
                         //TcpMessage(false, clientInput);
                         continue;
 
@@ -440,14 +471,45 @@ namespace BattleshipMaxConsole.Data
                         {
                             response = ConvertAndAddTarget(command.Substring(5, 2), "player");
                         }
+
                         //Add target
                         writer.WriteLine(response);
                         TcpMessage(true, command);
                         TcpMessage(false, response);
-                        command = Console.ReadLine();
-                        lastTarget = command.Split(' ')[1];
+                        var failed = true;
+                        do
+                        {
+                            if (errorMessages == 3)
+                            {
+                                Console.WriteLine("You sir have failed! Closing connection!!!");
+                                Game.SavedMessages.AddMessage($"You sir have failed! Closing connection!!!\r\n", false);
+                                client.Close();
+                                Console.ReadLine();
+                                break;
+                            }
+                            var yourturn = Console.ReadLine();
+                            if (yourturn.Substring(0, 4) == "FIRE")
+                            {
+                                lastTarget = yourturn.Split(' ')[1];
+                                writer.WriteLine(yourturn);
+                                failed = false;
+                            }
+                            else if (yourturn.Substring(0, 4) == "QUIT")
+                            {
+                        
+                                writer.WriteLine(yourturn);
+                                client.Close();
+                                failed = false;
+                            }
+                            else
+                            {
+                                errorMessages++;
+                                Console.WriteLine("Please try to write something usefull");
+
+                            }
+                        } while (failed);
                         Game.SavedMessages.AddMessage($"{command}\r\n", false);
-                        writer.WriteLine(command);
+                        //writer.WriteLine(command);
                         //TcpMessage(false, command);
                         continue;
                     }
@@ -478,7 +540,8 @@ namespace BattleshipMaxConsole.Data
                         if (code == 230)
                         {
                             //TODO:FIX THIS, yourLastTarget needs to be parsed to coordinate
-                            var cords = ParseLocation(lastTarget).Split('.');
+                            var cord = ParseLocation(lastTarget);
+                            var cords = cord.Split(".");
                             _confirmedMisses.Add(lastTarget);
 
                             Player.OpponentGrid[int.Parse(cords[0]), int.Parse(cords[1])] = "M";
@@ -486,7 +549,8 @@ namespace BattleshipMaxConsole.Data
                         }
                         else if (code >= 241 && code <= 255)
                         {
-                            var cords = ParseLocation(lastTarget).Split('.');
+                            var cord = ParseLocation(lastTarget);
+                            var cords = cord.Split(".");
                             _confirmedHits.Add(lastTarget);
                             Player.OpponentGrid[int.Parse(cords[0]), int.Parse(cords[1])] = "H";
                             PrintGrid(Player.Grid, Player.OpponentGrid, ThePlayer, TheOpponent);
@@ -749,15 +813,15 @@ namespace BattleshipMaxConsole.Data
                 Console.Write("|");
                 for (int j = 0; j < 10; j++)
                 {
-                    if (grid[i,j] == "H")
+                    if (grid[i, j] == "H")
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.Write(" " + grid[i, j] + " ");
                         Console.ResetColor();
                     }
-                    else if(grid[i, j] == "M")
+                    else if (grid[i, j] == "M")
                     {
-                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.Write(" " + grid[i, j] + " ");
                         Console.ResetColor();
                     }
@@ -771,7 +835,7 @@ namespace BattleshipMaxConsole.Data
                     {
                         Console.Write(" " + grid[i, j] + " ");
                     }
-                    
+
                     Console.Write("|");
 
                 }
@@ -824,7 +888,7 @@ namespace BattleshipMaxConsole.Data
                     }
                     else if (enemyGrid[i, j] == "M")
                     {
-                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.Write(" " + enemyGrid[i, j] + " ");
                         Console.ResetColor();
                     }
@@ -861,7 +925,7 @@ namespace BattleshipMaxConsole.Data
                 }
                 Console.Write(message.Text);
                 Console.ResetColor();
-            }       
+            }
         }
     }
 }
