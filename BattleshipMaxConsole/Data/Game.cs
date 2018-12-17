@@ -162,6 +162,7 @@ namespace BattleshipMaxConsole.Data
                 using (StreamReader reader = new StreamReader(networkStream, Encoding.UTF8))
                 using (var writer = new StreamWriter(networkStream, Encoding.UTF8) { AutoFlush = true })
                 {
+                    var yourLastTarget = "";
                     var errorMessages = 0;
                     var turn = 0;
                     Console.WriteLine($"Client has connected {client.Client.RemoteEndPoint}!");
@@ -179,11 +180,11 @@ namespace BattleshipMaxConsole.Data
 
                         if (command.Length < 3)
                         {
-                            
+
                             writer.WriteLine(responses[500]);
                             continue;
                         }
-                        
+
 
                         if (turn == 1)
                         {
@@ -218,6 +219,7 @@ namespace BattleshipMaxConsole.Data
                                     TcpMessage(false, uStartMessage);
                                     command = Console.ReadLine();
                                     Game.SavedMessages.AddMessage($"{command}\r\n", false);
+                                    yourLastTarget = command.Split(' ')[1];
                                     writer.WriteLine(command);
                                     var answere = reader.ReadLine();
                                     TcpMessage(true, answere);
@@ -237,14 +239,16 @@ namespace BattleshipMaxConsole.Data
 
                             if (string.Equals(command.Substring(0, 4), "FIRE", StringComparison.InvariantCultureIgnoreCase))
                             {
+
                                 errorMessages = 0;
                                 //check if hit????
-                                var response = ConvertAndAddTarget(command.Substring(5, 2),"player");
+                                var response = ConvertAndAddTarget(command.Substring(5, 2), "player");
                                 //Add target
                                 writer.WriteLine(response);
                                 TcpMessage(true, command);
                                 TcpMessage(false, response);
                                 command = Console.ReadLine();
+                                yourLastTarget = command.Split(' ')[1];
                                 Game.SavedMessages.AddMessage($"{command}\r\n", false);
                                 writer.WriteLine(command);
                                 //TcpMessage(false, command);
@@ -257,6 +261,16 @@ namespace BattleshipMaxConsole.Data
                                 if (code == 220)
                                 {
                                     continue;
+                                }
+                                //Add to confirmedhits or conformedmisses
+                                if (code == 230)
+                                {
+                                    //TODO:FIX THIS, yourLastTarget needs to be parsed to coordinate
+                                    _confirmedMisses.Add(yourLastTarget);
+                                }
+                                else if (code >= 241 && code <= 255)
+                                {
+                                    _confirmedHits.Add(yourLastTarget);
                                 }
 
                                 if (code == 500 || code == 501)
@@ -508,7 +522,7 @@ namespace BattleshipMaxConsole.Data
             {
                 //target already exists????
 
-                return "503";
+                return "501";
 
             }
             _targets.Add(targetToAdd);
