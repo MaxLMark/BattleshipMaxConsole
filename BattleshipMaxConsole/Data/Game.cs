@@ -275,11 +275,18 @@ namespace BattleshipMaxConsole.Data
                                 if (code == 230)
                                 {
                                     //TODO:FIX THIS, yourLastTarget needs to be parsed to coordinate
+                                    var cords = ParseLocation(yourLastTarget).Split('.');
                                     _confirmedMisses.Add(yourLastTarget);
+
+                                    Player.OpponentGrid[int.Parse(cords[0]), int.Parse(cords[1])] = "M";
+                                    PrintGrid(Player.Grid, Player.OpponentGrid, ThePlayer, TheOpponent);
                                 }
                                 else if (code >= 241 && code <= 255)
                                 {
+                                    var cords = ParseLocation(yourLastTarget).Split('.');
                                     _confirmedHits.Add(yourLastTarget);
+                                    Player.OpponentGrid[int.Parse(cords[0]), int.Parse(cords[1])] = "H";
+                                    PrintGrid(Player.Grid, Player.OpponentGrid, ThePlayer, TheOpponent);
                                 }
 
                                 if (code == 500 || code == 501)
@@ -326,6 +333,7 @@ namespace BattleshipMaxConsole.Data
         }
         public void ConnectToServer(string hostAdress, string hostPort)
         {
+            string lastTarget = "";
             using (var client = new TcpClient(hostAdress, int.Parse(hostPort)))
             using (var networkStream = client.GetStream())
             using (StreamReader reader = new StreamReader(networkStream, Encoding.UTF8))
@@ -340,7 +348,6 @@ namespace BattleshipMaxConsole.Data
                 writer.WriteLine("220 " + User);
                 TcpMessage(false, "HELLO " + User);
 
-
                 try
                 {
                     var text1 = reader.ReadLine();
@@ -353,7 +360,6 @@ namespace BattleshipMaxConsole.Data
                     Opponent = "(Host)";
                     TcpMessage(true, "220 " + Opponent);
                 }
-
 
                 while (client.Connected)
                 {
@@ -439,6 +445,7 @@ namespace BattleshipMaxConsole.Data
                         TcpMessage(true, command);
                         TcpMessage(false, response);
                         command = Console.ReadLine();
+                        lastTarget = command.Split(' ')[1];
                         Game.SavedMessages.AddMessage($"{command}\r\n", false);
                         writer.WriteLine(command);
                         //TcpMessage(false, command);
@@ -468,7 +475,22 @@ namespace BattleshipMaxConsole.Data
                             writer.WriteLine(newtry);
                             continue;
                         }
+                        if (code == 230)
+                        {
+                            //TODO:FIX THIS, yourLastTarget needs to be parsed to coordinate
+                            var cords = ParseLocation(lastTarget).Split('.');
+                            _confirmedMisses.Add(lastTarget);
 
+                            Player.OpponentGrid[int.Parse(cords[0]), int.Parse(cords[1])] = "M";
+                            PrintGrid(Player.Grid, Player.OpponentGrid, ThePlayer, TheOpponent);
+                        }
+                        else if (code >= 241 && code <= 255)
+                        {
+                            var cords = ParseLocation(lastTarget).Split('.');
+                            _confirmedHits.Add(lastTarget);
+                            Player.OpponentGrid[int.Parse(cords[0]), int.Parse(cords[1])] = "H";
+                            PrintGrid(Player.Grid, Player.OpponentGrid, ThePlayer, TheOpponent);
+                        }
                         errorMessages = 0;
                         //IF MATCH??? write message
                         TcpMessage(true, responses[code]);
@@ -727,8 +749,29 @@ namespace BattleshipMaxConsole.Data
                 Console.Write("|");
                 for (int j = 0; j < 10; j++)
                 {
-
-                    Console.Write(" " + grid[i, j] + " ");
+                    if (grid[i,j] == "H")
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Write(" " + grid[i, j] + " ");
+                        Console.ResetColor();
+                    }
+                    else if(grid[i, j] == "M")
+                    {
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.Write(" " + grid[i, j] + " ");
+                        Console.ResetColor();
+                    }
+                    else if (grid[i, j] == "~")
+                    {
+                        Console.ForegroundColor = ConsoleColor.Blue;
+                        Console.Write(" " + grid[i, j] + " ");
+                        Console.ResetColor();
+                    }
+                    else
+                    {
+                        Console.Write(" " + grid[i, j] + " ");
+                    }
+                    
                     Console.Write("|");
 
                 }
@@ -773,7 +816,28 @@ namespace BattleshipMaxConsole.Data
                 for (int j = 0; j < 10; j++)
                 {
 
-                    Console.Write(" " + enemyGrid[i, j] + " ");
+                    if (enemyGrid[i, j] == "H")
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Write(" " + enemyGrid[i, j] + " ");
+                        Console.ResetColor();
+                    }
+                    else if (enemyGrid[i, j] == "M")
+                    {
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.Write(" " + enemyGrid[i, j] + " ");
+                        Console.ResetColor();
+                    }
+                    else if (enemyGrid[i, j] == "~")
+                    {
+                        Console.ForegroundColor = ConsoleColor.Blue;
+                        Console.Write(" " + enemyGrid[i, j] + " ");
+                        Console.ResetColor();
+                    }
+                    else
+                    {
+                        Console.Write(" " + enemyGrid[i, j] + " ");
+                    }
                     Console.Write("|");
 
                 }
@@ -797,7 +861,7 @@ namespace BattleshipMaxConsole.Data
                 }
                 Console.Write(message.Text);
                 Console.ResetColor();
-            }
+            }       
         }
     }
 }
