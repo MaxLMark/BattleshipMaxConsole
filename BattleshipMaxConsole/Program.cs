@@ -12,7 +12,15 @@ namespace BattleshipMaxConsole
             Console.WriteLine("Hello welcome to MarreNCharres battleship game!");
             Game.SavedMessages.AddMessage("Hello welcome to MarreNCharres battleship game!\r\n", false);
             Player.Grid = game.CreatePlayerGrid();
-            Player.OpponentGrid = new string[10, 10];
+            var opponentGrid = new string[10, 10];
+            for (int i = 0; i < 10; i++)
+            {
+                for (int j = 0; j < 10; j++)
+                {
+                    opponentGrid[i, j] = "~";
+                }
+            }
+            Player.OpponentGrid = opponentGrid;
 
             Console.WriteLine("Enter your name!!!!!");
             Game.SavedMessages.AddMessage("Enter your name!!!!!\r\n", false);
