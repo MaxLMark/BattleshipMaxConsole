@@ -242,7 +242,16 @@ namespace BattleshipMaxConsole.Data
 
                                 errorMessages = 0;
                                 //check if hit????
-                                var response = ConvertAndAddTarget(command.Substring(5, 2), "player");
+                                var response = "";
+                                if(command.Length > 7)
+                                {
+                                    response = ConvertAndAddTarget(command.Substring(5, 3), "player");
+                                }
+                                else
+                                {
+                                    response = ConvertAndAddTarget(command.Substring(5, 2), "player");
+                                }
+                                
                                 //Add target
                                 writer.WriteLine(response);
                                 TcpMessage(true, command);
@@ -416,7 +425,15 @@ namespace BattleshipMaxConsole.Data
                     {
                         errorMessages = 0;
                         //check if hit????
-                        var response = ConvertAndAddTarget(command.Substring(5, 2), "player");
+                        var response = "";
+                        if (command.Length > 7)
+                        {
+                            response = ConvertAndAddTarget(command.Substring(5, 3), "player");
+                        }
+                        else
+                        {
+                            response = ConvertAndAddTarget(command.Substring(5, 2), "player");
+                        }
                         //Add target
                         writer.WriteLine(response);
                         TcpMessage(true, command);
